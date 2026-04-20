@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triagegeist — AI Triage Decision Support</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070d16;
+    --surface: #0d1623;
+    --surface2: #131f30;
+    --border: #1e2f45;
+    --border2: #2a4060;
+    --text: #c8d8e8;
+    --text2: #7a9ab8;
+    --text3: #4a6a88;
+    --accent: #0ea5e9;
+    --accent2: #0284c7;
+    --esi1: #ef4444;
+    --esi2: #f97316;
+    --esi3: #eab308;
+    --esi4: #22c55e;
+    --esi5: #3b82f6;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 2px;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    margin-left: auto;
+    box-shadow: 0 0 8px #22c55e;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #22c55e;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+  }
+
+  .panel-header-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .panel-body { padding: 20px; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .vitals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .field input, .field select, .field textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .field input::placeholder { color: var(--text3); }
+
+  .field textarea {
+    resize: vertical;
+    min-height: 70px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .field select option { background: var(--surface); }
+
+  .unit {
+    position: relative;
+  }
+
+  .unit-label {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    pointer-events: none;
+  }
+
+  .unit input { padding-right: 40px; }
+
+  .submit-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 20px;
+    text-transform: uppercase;
+  }
+
+  .submit-btn:hover { background: var(--accent2); }
+  .submit-btn:active { transform: scale(0.99); }
+  .submit-btn:disabled { background: var(--border2); cursor: not-allowed; }
+
+  .result-panel { position: sticky; top: 24px; }
+
+  .esi-display {
+    text-align: center;
+    padding: 32px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .esi-number {
+    font-family: var(--mono);
+    font-size: 72px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+    transition: color 0.3s;
+  }
+
+  .esi-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+  }
+
+  .confidence-bar {
+    margin: 16px 20px 0;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease, background 0.3s;
+  }
+
+  .confidence-text {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+    margin-top: 8px;
+    padding: 0 20px;
+  }
+
+  .prob-bars {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prob-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .prob-row:last-child { margin-bottom: 0; }
+
+  .prob-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    width: 44px;
+    flex-shrink: 0;
+  }
+
+  .prob-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .prob-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  .prob-pct {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .waiting-state {
+    padding: 48px 20px;
+    text-align: center;
+  }
+
+  .waiting-icon {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--border2);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .waiting-icon svg {
+    width: 20px; height: 20px;
+    stroke: var(--text3);
+    fill: none;
+  }
+
+  .waiting-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  .clinical-notes {
+    padding: 16px 20px;
+  }
+
+  .note-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .note-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .note-text {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 48px 20px;
+  }
+
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  .error-msg {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #fca5a5;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .api-url-notice {
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 768px) {
+    main { grid-template-columns: 1fr; }
+    .result-panel { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<header>
+  <div class="logo">TRIAGE<span>GEIST</span></div>
+  <div class="badge">AI DECISION SUPPORT</div>
+  <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+    <div class="status-dot" id="api-status-dot"></div>
+    <span class="status-text" id="api-status-text">CHECKING API...</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Form -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <div class="panel-title">Patient Intake — Triage Assessment</div>
+    </div>
+    <div class="panel-body">
+
+      <div class="api-url-notice">
+        API endpoint: <span id="api-url-display">http://localhost:8000</span>
+        &nbsp;·&nbsp; change in script below
+      </div>
+
+      <!-- Vitals -->
+      <div class="section-label">Vital Signs</div>
+      <div class="vitals-grid">
+        <div class="field">
+          <label>Systolic BP *</label>
+          <div class="unit">
+            <input type="number" id="systolic_bp" placeholder="120" min="50" max="250" required>
+            <span class="unit-label">mmHg</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Diastolic BP *</label>
+          <div class="unit">
+            <input type="number" id="diastolic_bp" placeholder="75" min="30" max="150" required>
+            <span class="unit-label">mmHg</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Heart Rate *</label>
+          <div class="unit">
+            <input type="number" id="heart_rate" placeholder="80" min="20" max="250" required>
+            <span class="unit-label">bpm</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Respiratory Rate *</label>
+          <div class="unit">
+            <input type="number" id="respiratory_rate" placeholder="16" min="4" max="60" required>
+            <span class="unit-label">rpm</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Temperature *</label>
+          <div class="unit">
+            <input type="number" id="temperature_c" placeholder="37.0" step="0.1" min="32" max="42" required>
+            <span class="unit-label">°C</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>SpO2 *</label>
+          <div class="unit">
+            <input type="number" id="spo2" placeholder="98" min="50" max="100" required>
+            <span class="unit-label">%</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>GCS Total *</label>
+          <input type="number" id="gcs_total" placeholder="15" min="3" max="15" required>
+        </div>
+        <div class="field">
+          <label>Pain Score</label>
+          <input type="number" id="pain_score" placeholder="leave blank if N/A" min="0" max="10">
+        </div>
+      </div>
+
+      <!-- Clinical Context -->
+      <div class="section-label">Clinical Context</div>
+      <div class="vitals-grid">
+        <div class="field">
+          <label>Mental Status *</label>
+          <select id="mental_status_triage">
+            <option value="alert">Alert</option>
+            <option value="agitated">Agitated</option>
+            <option value="confused">Confused</option>
+            <option value="drowsy">Drowsy</option>
+            <option value="unresponsive">Unresponsive</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Prior ED Visits (12m)</label>
+          <input type="number" id="num_prior_ed_visits_12m" placeholder="0" min="0" max="50" value="0">
+        </div>
+        <div class="field" style="grid-column: span 2;">
+          <label>Active Comorbidities</label>
+          <input type="number" id="num_comorbidities" placeholder="0" min="0" max="20" value="0">
+        </div>
+      </div>
+
+      <!-- Chief Complaint -->
+      <div class="section-label">Chief Complaint</div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>Free-text narrative</label>
+        <textarea id="chief_complaint" placeholder="e.g. chest pain with shortness of breath, onset 2 hours ago, worsening with movement"></textarea>
+      </div>
+
+      <button class="submit-btn" onclick="predict()">
+        RUN TRIAGE ASSESSMENT
+      </button>
+      <div class="error-msg" id="error-msg"></div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Result -->
+  <div class="result-panel panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <div class="panel-title">Acuity Prediction</div>
+    </div>
+
+    <!-- Waiting state -->
+    <div class="waiting-state" id="waiting-state">
+      <div class="waiting-icon">
+        <svg viewBox="0 0 24 24" stroke-width="1.5">
+          <path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="waiting-text">Awaiting patient data</div>
+    </div>
+
+    <!-- Loading state -->
+    <div class="loading" id="loading-state">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Analyzing patient data...</div>
+    </div>
+
+    <!-- Result state -->
+    <div id="result-state" style="display:none;">
+      <div class="esi-display">
+        <div class="esi-number" id="esi-number">—</div>
+        <div class="esi-label" id="esi-label">—</div>
+      </div>
+
+      <div class="confidence-bar" style="margin-top: 16px;">
+        <div class="confidence-fill" id="conf-fill" style="width:0%"></div>
+      </div>
+      <div class="confidence-text" id="conf-text">—</div>
+
+      <!-- Probability bars -->
+      <div class="prob-bars" id="prob-bars">
+        <div class="section-label" style="margin-bottom: 14px;">Probability by ESI level</div>
+      </div>
+
+      <!-- Clinical notes -->
+      <div class="clinical-notes" id="clinical-notes">
+        <div class="section-label" style="margin-bottom: 12px;">Clinical flags</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+function normalizeBaseUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function getApiCandidates() {
+  const candidates = [];
+  const urlParams = new URLSearchParams(window.location.search);
+  const apiFromQuery = normalizeBaseUrl(urlParams.get('api'));
+  const apiFromStorage = normalizeBaseUrl(localStorage.getItem('triage_api_url'));
+
+  if (apiFromQuery) candidates.push(apiFromQuery);
+  if (apiFromStorage) candidates.push(apiFromStorage);
+
+  if (window.location.protocol.startsWith('http') && window.location.port === '8000') {
+    candidates.push(normalizeBaseUrl(window.location.origin));
+  }
+
+  candidates.push('http://127.0.0.1:8000', 'http://localhost:8000');
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+const API_CANDIDATES = getApiCandidates();
+let API_URL = API_CANDIDATES[0] || 'http://localhost:8000';
+
+const ESI_COLORS = {
+  1: '#ef4444',
+  2: '#f97316',
+  3: '#eab308',
+  4: '#22c55e',
+  5: '#3b82f6'
+};
+
+const ESI_LABELS = {
+  1: 'IMMEDIATE — Life threat',
+  2: 'EMERGENT — High risk',
+  3: 'URGENT — Needs resources',
+  4: 'LESS URGENT',
+  5: 'NON-URGENT'
+};
+
+function setActiveApiUrl(url) {
+  API_URL = normalizeBaseUrl(url);
+  document.getElementById('api-url-display').textContent = API_URL;
+  localStorage.setItem('triage_api_url', API_URL);
+}
+
+setActiveApiUrl(API_URL);
+
+async function apiFetch(path, options) {
+  let lastError = new Error('No API endpoint available');
+
+  for (const baseUrl of API_CANDIDATES) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, options);
+      setActiveApiUrl(baseUrl);
+      return response;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError;
+}
+
+async function checkApiHealth() {
+  const dot = document.getElementById('api-status-dot');
+  const text = document.getElementById('api-status-text');
+
+  try {
+    const res = await apiFetch('/health');
+    if (!res.ok) throw new Error(`status ${res.status}`);
+
+    dot.style.background = '#22c55e';
+    dot.style.boxShadow = '0 0 8px #22c55e';
+    text.style.color = '#22c55e';
+    text.textContent = 'API ONLINE';
+  } catch (_err) {
+    dot.style.background = '#ef4444';
+    dot.style.boxShadow = '0 0 8px #ef4444';
+    text.style.color = '#ef4444';
+    text.textContent = 'API OFFLINE';
+  }
+}
+
+function getVal(id) {
+  const el = document.getElementById(id);
+  const v = el.value.trim();
+  return v === '' ? null : (el.type === 'number' ? parseFloat(v) : v);
+}
+
+function withDefaultNumber(value, fallback) {
+  return value === null || Number.isNaN(value) ? fallback : value;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('error-msg').style.display = 'none';
+}
+
+function getClinicalFlags(data, esi) {
+  const flags = [];
+  if (data.gcs_total !== null && data.gcs_total < 13) {
+    flags.push({ color: '#ef4444', text: `GCS ${data.gcs_total}/15 — altered consciousness` });
+  }
+  if (data.systolic_bp !== null && data.systolic_bp < 90) {
+    flags.push({ color: '#ef4444', text: `Systolic BP ${data.systolic_bp} mmHg — hypotension` });
+  }
+  if (data.spo2 !== null && data.spo2 < 94) {
+    flags.push({ color: '#f97316', text: `SpO2 ${data.spo2}% — hypoxemia` });
+  }
+  if (data.respiratory_rate !== null && data.respiratory_rate >= 22) {
+    flags.push({ color: '#f97316', text: `RR ${data.respiratory_rate} rpm — tachypnea` });
+  }
+  if (data.temperature_c !== null && data.temperature_c >= 38.5) {
+    flags.push({ color: '#eab308', text: `Temp ${data.temperature_c}°C — fever` });
+  }
+  if (data.mental_status_triage === 'unresponsive') {
+    flags.push({ color: '#ef4444', text: 'Unresponsive — immediate attention required' });
+  }
+  if (data.pain_score !== null && data.pain_score >= 8) {
+    flags.push({ color: '#f97316', text: `Pain ${data.pain_score}/10 — severe` });
+  }
+  if (flags.length === 0) {
+    flags.push({ color: '#22c55e', text: 'No critical flags detected' });
+  }
+  return flags;
+}
+
+async function predict() {
+  hideError();
+
+  const sbp = getVal('systolic_bp');
+  const dbp = getVal('diastolic_bp');
+  const hr  = getVal('heart_rate');
+  const rr  = getVal('respiratory_rate');
+  const tmp = getVal('temperature_c');
+  const spo = getVal('spo2');
+  const gcs = getVal('gcs_total');
+
+  if (sbp === null || dbp === null || hr === null || rr === null || tmp === null || spo === null || gcs === null) {
+    showError('Systolic BP, diastolic BP, heart rate, respiratory rate, temperature, SpO2, and GCS are required fields.');
+    return;
+  }
+
+  const payload = {
+    systolic_bp:              withDefaultNumber(sbp, 120),
+    diastolic_bp:             withDefaultNumber(dbp, 75),
+    heart_rate:               withDefaultNumber(hr, 80),
+    respiratory_rate:         withDefaultNumber(rr, 16),
+    temperature_c:            withDefaultNumber(tmp, 37.0),
+    spo2:                     withDefaultNumber(spo, 98),
+    gcs_total:                withDefaultNumber(gcs, 15),
+    pain_score:               getVal('pain_score'),
+    mental_status_triage:     getVal('mental_status_triage'),
+    num_prior_ed_visits_12m:  withDefaultNumber(getVal('num_prior_ed_visits_12m'), 0),
+    num_comorbidities:        withDefaultNumber(getVal('num_comorbidities'), 0),
+    chief_complaint:          getVal('chief_complaint') || ''
+  };
+
+  document.getElementById('waiting-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'block';
+  document.getElementById('result-state').style.display = 'none';
+  document.querySelector('.submit-btn').disabled = true;
+
+  try {
+    const res = await apiFetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+
+    renderResult(data, payload);
+  } catch (err) {
+    checkApiHealth();
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('waiting-state').style.display = 'block';
+    showError(`Connection error: ${err.message}. Make sure the API is running.`);
+  } finally {
+    document.querySelector('.submit-btn').disabled = false;
+  }
+}
+
+function renderResult(data, payload) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('result-state').style.display = 'block';
+
+  const esiRaw = Number(data.esi_level);
+  const esi = Number.isFinite(esiRaw) ? Math.min(5, Math.max(1, Math.round(esiRaw))) : 1;
+  const color = ESI_COLORS[esi];
+
+  document.getElementById('esi-number').textContent = esi;
+  document.getElementById('esi-number').style.color = color;
+  document.getElementById('esi-label').textContent  = ESI_LABELS[esi];
+  document.getElementById('esi-label').style.color  = color;
+
+  const conf = Number(data.confidence) || 0;
+  document.getElementById('conf-fill').style.width      = `${conf}%`;
+  document.getElementById('conf-fill').style.background = color;
+  document.getElementById('conf-text').textContent      = `Model confidence: ${conf}%`;
+
+  // Probability bars
+  const probContainer = document.getElementById('prob-bars');
+  probContainer.innerHTML = '<div class="section-label" style="margin-bottom:14px;">Probability by ESI level</div>';
+
+  for (let i = 1; i <= 5; i++) {
+    const pct = Number(data.probabilities[`ESI_${i}`]) || 0;
+    const row = document.createElement('div');
+    row.className = 'prob-row';
+    row.innerHTML = `
+      <span class="prob-label">ESI ${i}</span>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-fill" style="width:${pct}%; background:${ESI_COLORS[i]}"></div>
+      </div>
+      <span class="prob-pct">${pct}%</span>
+    `;
+    probContainer.appendChild(row);
+  }
+
+  // Clinical flags
+  const flags = getClinicalFlags(payload, esi);
+  const notesContainer = document.getElementById('clinical-notes');
+  notesContainer.innerHTML = '<div class="section-label" style="margin-bottom:12px;">Clinical flags</div>';
+
+  flags.forEach(flag => {
+    const item = document.createElement('div');
+    item.className = 'note-item';
+    item.innerHTML = `
+      <div class="note-dot" style="background:${flag.color}"></div>
+      <div class="note-text">${flag.text}</div>
+    `;
+    notesContainer.appendChild(item);
+  });
+}
+
+checkApiHealth();
+</script>
+</body>
+</html>
