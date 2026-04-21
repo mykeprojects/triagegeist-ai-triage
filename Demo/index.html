@@ -511,12 +511,12 @@
           </div>
         </div>
         <div class="field">
-          <label>GCS Total *</label>
-          <input type="number" id="gcs_total" placeholder="15" min="3" max="15" required>
-        </div>
-        <div class="field">
           <label>Pain Score</label>
           <input type="number" id="pain_score" placeholder="leave blank if N/A" min="0" max="10">
+        </div>
+        <div class="field">
+          <label>Age *</label>
+          <input type="number" id="age" placeholder="45" min="0" max="120" required>
         </div>
       </div>
 
@@ -534,12 +534,19 @@
           </select>
         </div>
         <div class="field">
-          <label>Prior ED Visits (12m)</label>
-          <input type="number" id="num_prior_ed_visits_12m" placeholder="0" min="0" max="50" value="0">
+          <label>Arrival Mode *</label>
+          <select id="arrival_mode">
+            <option value="walk-in">Walk-in</option>
+            <option value="ambulance">Ambulance</option>
+            <option value="helicopter">Helicopter</option>
+          </select>
         </div>
-        <div class="field" style="grid-column: span 2;">
-          <label>Active Comorbidities</label>
-          <input type="number" id="num_comorbidities" placeholder="0" min="0" max="20" value="0">
+        <div class="field">
+          <label>Sex *</label>
+          <select id="sex">
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
         </div>
       </div>
 
@@ -715,9 +722,6 @@ function hideError() {
 
 function getClinicalFlags(data, esi) {
   const flags = [];
-  if (data.gcs_total !== null && data.gcs_total < 13) {
-    flags.push({ color: '#ef4444', text: `GCS ${data.gcs_total}/15 — altered consciousness` });
-  }
   if (data.systolic_bp !== null && data.systolic_bp < 90) {
     flags.push({ color: '#ef4444', text: `Systolic BP ${data.systolic_bp} mmHg — hypotension` });
   }
@@ -751,25 +755,25 @@ async function predict() {
   const rr  = getVal('respiratory_rate');
   const tmp = getVal('temperature_c');
   const spo = getVal('spo2');
-  const gcs = getVal('gcs_total');
+  const age = getVal('age');
 
-  if (sbp === null || dbp === null || hr === null || rr === null || tmp === null || spo === null || gcs === null) {
-    showError('Systolic BP, diastolic BP, heart rate, respiratory rate, temperature, SpO2, and GCS are required fields.');
+  if (sbp === null || dbp === null || hr === null || rr === null || tmp === null || spo === null || age === null) {
+    showError('Systolic BP, diastolic BP, heart rate, respiratory rate, temperature, SpO2, and age are required fields.');
     return;
   }
 
   const payload = {
-    systolic_bp:              withDefaultNumber(sbp, 120),
-    diastolic_bp:             withDefaultNumber(dbp, 75),
     heart_rate:               withDefaultNumber(hr, 80),
     respiratory_rate:         withDefaultNumber(rr, 16),
-    temperature_c:            withDefaultNumber(tmp, 37.0),
     spo2:                     withDefaultNumber(spo, 98),
-    gcs_total:                withDefaultNumber(gcs, 15),
+    systolic_bp:              withDefaultNumber(sbp, 120),
+    diastolic_bp:             withDefaultNumber(dbp, 75),
+    temperature_c:            withDefaultNumber(tmp, 37.0),
     pain_score:               getVal('pain_score'),
+    age:                      withDefaultNumber(age, 45),
     mental_status_triage:     getVal('mental_status_triage'),
-    num_prior_ed_visits_12m:  withDefaultNumber(getVal('num_prior_ed_visits_12m'), 0),
-    num_comorbidities:        withDefaultNumber(getVal('num_comorbidities'), 0),
+    arrival_mode:             getVal('arrival_mode'),
+    sex:                      getVal('sex'),
     chief_complaint:          getVal('chief_complaint') || ''
   };
 
