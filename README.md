@@ -4,6 +4,12 @@ TriageGeist AI Triage is a clinical decision-support demo for estimating a patie
 
 > Important: this project is intended for demonstration and research. It does not replace clinical judgment and should not be used as the sole basis for care decisions.
 
+## Data Sources
+- Triagegeist synthetic dataset — Laitinen-Fredriksson Foundation
+- MIMIC-IV-ED v2.2 — PhysioNet (credentialed access required)
+  Johnson et al. (2023). https://doi.org/10.13026/5ntk-km72
+- MIETIC — Shen & Guo (2025). https://doi.org/10.13026/q1nc-2e47
+
 ## Features
 
 - Modern web interface for recording vital signs and the chief complaint.
