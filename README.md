@@ -41,13 +41,21 @@ The frontend sends patient data to the API, the API processes the clinical varia
 ├── README.md
 ├── notebook.md
 └── Demo/
-		├── index.html
-		└── Backend/
-				├── main.py
-				├── requirements.txt
-				└── models/
-						├── xgb_model_demo.pkl
-						└── features_demo.pkl
+    ├── Backend/
+    │   ├── main.py
+    │   ├── requirements.txt
+    │   └── models/
+    │       ├── xgb_model_demo.pkl
+    │       └── features_demo.pkl
+    └── Frontend/
+        ├── index.html
+        ├── css/
+        │   └── styles.css
+        └── js/
+            ├── api.js
+            ├── app.js
+            └── ui.js
+
 ```
 
 ## Requirements
