@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Triagegeist — AI Triage Decision Support</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<header>
+  <div class="logo">TRIAGE<span>GEIST</span></div>
+  <div class="badge">AI DECISION SUPPORT</div>
+  <div class="api-status-container">
+    <div class="status-dot" id="api-status-dot"></div>
+    <span class="status-text" id="api-status-text">CHECKING API...</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: Form -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <div class="panel-title">Patient Intake — Triage Assessment</div>
+    </div>
+    <div class="panel-body">
+
+      <div class="api-url-notice">
+        API endpoint: <span id="api-url-display">http://localhost:8000</span>
+        &nbsp;·&nbsp; change in URL parameters or localStorage
+      </div>
+
+      <!-- Vitals -->
+      <div class="section-label">Vital Signs</div>
+      <div class="vitals-grid">
+        <div class="field">
+          <label>Systolic BP *</label>
+          <div class="unit">
+            <input type="number" id="systolic_bp" placeholder="120" min="50" max="250" required>
+            <span class="unit-label">mmHg</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Diastolic BP *</label>
+          <div class="unit">
+            <input type="number" id="diastolic_bp" placeholder="75" min="30" max="150" required>
+            <span class="unit-label">mmHg</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Heart Rate *</label>
+          <div class="unit">
+            <input type="number" id="heart_rate" placeholder="80" min="20" max="250" required>
+            <span class="unit-label">bpm</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Respiratory Rate *</label>
+          <div class="unit">
+            <input type="number" id="respiratory_rate" placeholder="16" min="4" max="60" required>
+            <span class="unit-label">rpm</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Temperature *</label>
+          <div class="unit">
+            <input type="number" id="temperature_c" placeholder="37.0" step="0.1" min="32" max="42" required>
+            <span class="unit-label">°C</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>SpO2 *</label>
+          <div class="unit">
+            <input type="number" id="spo2" placeholder="98" min="50" max="100" required>
+            <span class="unit-label">%</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Pain Score</label>
+          <input type="number" id="pain_score" placeholder="leave blank if N/A" min="0" max="10">
+        </div>
+        <div class="field">
+          <label>Age *</label>
+          <input type="number" id="age" placeholder="45" min="0" max="120" required>
+        </div>
+      </div>
+
+      <!-- Clinical Context -->
+      <div class="section-label">Clinical Context</div>
+      <div class="vitals-grid">
+        <div class="field">
+          <label>Mental Status *</label>
+          <select id="mental_status_triage">
+            <option value="alert">Alert</option>
+            <option value="agitated">Agitated</option>
+            <option value="confused">Confused</option>
+            <option value="drowsy">Drowsy</option>
+            <option value="unresponsive">Unresponsive</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Arrival Mode *</label>
+          <select id="arrival_mode">
+            <option value="walk-in">Walk-in</option>
+            <option value="ambulance">Ambulance</option>
+            <option value="helicopter">Helicopter</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Sex *</label>
+          <select id="sex">
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Chief Complaint -->
+      <div class="section-label">Chief Complaint</div>
+      <div class="field field-mb-0">
+        <label>Free-text narrative</label>
+        <textarea id="chief_complaint" placeholder="e.g. chest pain with shortness of breath, onset 2 hours ago, worsening with movement"></textarea>
+      </div>
+
+      <button class="submit-btn" id="submit-btn">
+        RUN TRIAGE ASSESSMENT
+      </button>
+      <div class="error-msg hidden" id="error-msg"></div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Result -->
+  <div class="result-panel panel">
+    <div class="panel-header">
+      <div class="panel-header-dot"></div>
+      <div class="panel-title">Acuity Prediction</div>
+    </div>
+
+    <!-- Waiting state -->
+    <div class="waiting-state" id="waiting-state">
+      <div class="waiting-icon">
+        <svg viewBox="0 0 24 24" stroke-width="1.5">
+          <path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="waiting-text">Awaiting patient data</div>
+    </div>
+
+    <!-- Loading state -->
+    <div class="loading hidden" id="loading-state">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Analyzing patient data...</div>
+    </div>
+
+    <!-- Result state -->
+    <div id="result-state" class="hidden">
+      <div class="esi-display">
+        <div class="esi-number" id="esi-number">—</div>
+        <div class="esi-label" id="esi-label">—</div>
+      </div>
+
+      <div class="confidence-bar confidence-bar-spaced">
+        <div class="confidence-fill" id="conf-fill"></div>
+      </div>
+      <div class="confidence-text" id="conf-text">—</div>
+
+      <!-- Probability bars -->
+      <div class="prob-bars" id="prob-bars">
+        <div class="section-label section-label-spaced-14">Probability by ESI level</div>
+      </div>
+
+      <!-- Clinical notes -->
+      <div class="clinical-notes" id="clinical-notes">
+        <div class="section-label section-label-spaced-12">Clinical flags</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- JavaScript Layers -->
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
